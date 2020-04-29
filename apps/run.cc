@@ -16,6 +16,8 @@ const int kSamples = 8;
 const int kWidth = 800;
 const int kHeight = 800;
 
+
+
 void SetUp(App::Settings* settings) {
   settings->setWindowSize(kWidth, kHeight);
   settings->setTitle("CS 126 Final");

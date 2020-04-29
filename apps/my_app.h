@@ -5,6 +5,7 @@
 
 #include <cinder/app/App.h>
 #include <curl/curl.h>
+#include <nlohmann/json.hpp>
 
 namespace myapp {
 
@@ -16,9 +17,10 @@ class MyApp : public cinder::app::App {
   void draw() override;
   void keyDown(cinder::app::KeyEvent) override;
   template <typename C>
-  void PrintText(const std::string& text, const C& color, const cinder::ivec2& size,
+  void printText(const std::string& text, const C& color, const cinder::ivec2& size,
                  const cinder::vec2& loc);
-  std::string test;
+  std::string read_buffer;
+  std::string download(const std::string& url);
 };
 
 }  // namespace myapp

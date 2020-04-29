@@ -101,3 +101,18 @@ if(NOT curl_POPULATED)
 endif()
 
 target_link_libraries(cinder-myapp libcurl)
+
+# json library.
+FetchContent_Declare(
+    json
+    GIT_REPOSITORY https://github.com/nlohmann/json
+)
+# Adds json library.
+FetchContent_GetProperties(json)
+if(NOT json_POPULATED)
+    FetchContent_Populate(json)
+    add_library(json INTERFACE)
+    target_include_directories(json INTERFACE ${json_SOURCE_DIR}/single_include/)
+endif()
+
+target_link_libraries(cinder-myapp json)
