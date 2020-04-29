@@ -4,9 +4,7 @@
 #define FINALPROJECT_APPS_MYAPP_H_
 
 #include <cinder/app/App.h>
-#include "HttpClient.h"
-
-using namespace midnight::http;
+#include <curl/curl.h>
 
 namespace myapp {
 
@@ -20,8 +18,7 @@ class MyApp : public cinder::app::App {
   template <typename C>
   void PrintText(const std::string& text, const C& color, const cinder::ivec2& size,
                  const cinder::vec2& loc);
-  std::shared_ptr<midnight::http::HttpClient> mCurl;
-  double mTime;
+  std::string test;
 };
 
 }  // namespace myapp

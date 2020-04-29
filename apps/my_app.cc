@@ -22,22 +22,39 @@ using cinder::TextBox;
 using cinder::app::KeyEvent;
 using std::string;
 
+// API key: RGAPI-b02b356e-064e-4b49-b67c-b9fdd06362ae
 
 namespace myapp {
 
 using cinder::app::KeyEvent;
 
+size_t WriteCallback(char *contents, size_t size, size_t nmemb, void *userp)
+{
+  ((std::string*)userp)->append((char*)contents, size * nmemb);
+  return size * nmemb;
+}
+
 MyApp::MyApp() { }
 
 void MyApp::setup() {
-  mTime = cinder::app::getElapsedSeconds();
-  mCurl = HttpClient::make();
+  CURL *curl;
+  CURLcode res;
+  std::string read_buffer;
+  curl_global_init(CURL_GLOBAL_DEFAULT);
 
-  HttpRequest get;
-  get.mUrl = "https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/Qwacker?api_key=RGAPI-de515e2a-d7c7-4d55-894a-8afdac2fb59a";
-  get.mMethod = HTTP_GET;
-  get.mCallback = [=](HttpResponse* response, HttpClient* curl) { std::printf("Request complete with code %ld; headers are %s\n", response->mResponseCode, curl->jsonToString(response->mHeaders).c_str()); };
-  mCurl->addRequest(get);
+  curl = curl_easy_init();
+  if(curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, "https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/Qwacker?api_key=RGAPI-b02b356e-064e-4b49-b67c-b9fdd06362ae");
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
+    res = curl_easy_perform(curl);
+    if(res != CURLE_OK)
+      fprintf(stderr, "curl_easy_perform() failed: %s\n",
+              curl_easy_strerror(res));
+    test = read_buffer;
+    std::cout << test << std::endl;
+    curl_easy_cleanup(curl);
+  }
 }
 
 void MyApp::update() { }
@@ -47,7 +64,7 @@ void MyApp::draw() {
   const cinder::ivec2 size = {500, 50};
   const cinder::Color color = cinder::Color::white();
 
-  PrintText("Test", color, size, center);
+  PrintText(test, color, size, center);
 }
 
 template <typename C>
