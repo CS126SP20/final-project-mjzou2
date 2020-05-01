@@ -8,6 +8,9 @@
 #include <nlohmann/json.hpp>
 #include <cinder/Text.h>
 #include "CinderImGui.h"
+#include <cinder/ip/Resize.h>
+
+
 
 using std::string;
 
@@ -19,17 +22,23 @@ class MyApp : public cinder::app::App {
   void setup() override;
   void update() override;
   void draw() override;
-  void keyDown(cinder::app::KeyEvent) override;
+ private:
   template <typename C>
-  void printText(const std::string& text, const C& color, const cinder::ivec2& size,
+  void printText(const std::string& text, const C& color, int font_size, const cinder::ivec2& size,
                  const cinder::vec2& loc);
   string call(const std::string& url);
   string getSummonerInfo(string api_key, string region, string name);
   string getRankedInfo(string api_key, string region, string summoner_id);
-  string getMatchList(string api_key, string region, string account_id, string queue, string begin_time, string begin_index, string end_index);
+  string getMatchList(string api_key, string region, string account_id, string queue, string begin_index, string end_index);
   string getMatchInfo(string api_key, string region, string match_id);
   string username;
-  string id;
+  string account_id;
+  string summoner_id;
+  string rank;
+  string tier;
+  int points;
+  int icon_id;
+  bool res;
 };
 
 }  // namespace myapp
