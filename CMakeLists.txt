@@ -89,18 +89,18 @@ endif()
 # Add more CMake libraries here ...
 
 # curl library.
-FetchContent_Declare(
-    curl
-    GIT_REPOSITORY https://github.com/curl/curl.git
-)
+#FetchContent_Declare(
+#    curl
+#    GIT_REPOSITORY https://github.com/curl/curl.git
+#)
 # Adds curl library.
-FetchContent_GetProperties(curl)
-if(NOT curl_POPULATED)
-    FetchContent_Populate(curl)
-    add_subdirectory(${curl_SOURCE_DIR} ${curl_BINARY_DIR})
-endif()
+#FetchContent_GetProperties(curl)
+#if(NOT curl_POPULATED)
+#    FetchContent_Populate(curl)
+#    add_subdirectory(${curl_SOURCE_DIR} ${curl_BINARY_DIR})
+#endif()
 
-target_link_libraries(cinder-myapp libcurl)
+#target_link_libraries(cinder-myapp libcurl)
 
 # json library.
 FetchContent_Declare(
@@ -116,3 +116,16 @@ if(NOT json_POPULATED)
 endif()
 
 target_link_libraries(cinder-myapp json)
+
+#FetchContent_Declare(
+#   cpr
+#    GIT_REPOSITORY https://github.com/whoshuu/cpr.git
+#)
+#FetchContent_GetProperties(cpr)
+#if(NOT cpr_POPULATED)
+#    FetchContent_Populate(cpr)
+#    add_subdirectory(${cpr_SOURCE_DIR} ${cpr_BINARY_DIR})
+#endif()
+
+find_package(cpr CONFIG REQUIRED)
+target_link_libraries(cinder-myapp cpr)
