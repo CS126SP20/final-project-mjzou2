@@ -14,6 +14,8 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <algorithm>
+#include <map>
 
 using std::stringstream;
 
@@ -26,8 +28,8 @@ using cinder::TextBox;
 using cinder::app::KeyEvent;
 using std::string;
 
-// API key: RGAPI-2780f235-d7db-4796-8a91-2000b43b310f
-// https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/b%27Qwacker%27?api_key=RGAPI-2780f235-d7db-4796-8a91-2000b43b310f
+string api_key = "RGAPI-d9a37c16-02bf-47f5-b79c-0530ece7b038";
+string region = "NA1";
 
 
 namespace myapp {
@@ -42,6 +44,14 @@ void MyApp::setup() {
   ImGui::StyleColorsClassic();
   icon_id = -1;
   res = false;
+  std::ifstream ids_file;
+  ids_file.open(cinder::app::getAssetPath("ids.json").c_str());
+  ids_file >> champion_ids;
+  std::ifstream champions_file;
+  champions_file.open(cinder::app::getAssetPath("champion.json").c_str());
+  nlohmann::json champions_full;
+  champions_file >> champions_full;
+  champions_data = champions_full["data"];
 }
 
 void MyApp::update() {}
@@ -51,7 +61,7 @@ void MyApp::draw() {
   ImGuiIO &io = ImGui::GetIO();
 
   ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.3f), ImGuiCond_Always, ImVec2(0.5f,0.5f));
-  ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.3f, io.DisplaySize.y * 0.3f), ImGuiCond_Always);
+  ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.22f, io.DisplaySize.y * 0.3f), ImGuiCond_Always);
 
   ImGui::Begin("Input", 0, (ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration));
 
@@ -60,15 +70,10 @@ void MyApp::draw() {
   ImGui::SameLine();
   string buf;
   bool enter = ImGui::InputText("", &buf, ImGuiInputTextFlags_EnterReturnsTrue);
-
-  for (int i = 0; i < 3; i++) {
-    ImGui::NewLine();
-  }
-
   if (enter) {
     username = buf;
     if (!username.empty()) {
-      string response = getSummonerInfo("RGAPI-2780f235-d7db-4796-8a91-2000b43b310f", "NA1", username);
+      string response = getSummonerInfo(api_key, region, username);
 
       if (std::isdigit(response[0])) {
         printText(response, Color(0, 0, 0), 40, {500, 50}, getWindowCenter());
@@ -87,7 +92,7 @@ void MyApp::draw() {
       icon_id = summoner_info["profileIconId"].get<int>();
 
       if (!summoner_id.empty()) {
-        response = getRankedInfo("RGAPI-2780f235-d7db-4796-8a91-2000b43b310f", "NA1", summoner_id);
+        response = getRankedInfo(api_key, region, summoner_id);
         nlohmann::json ranked_info = nlohmann::json::parse(response);
 
         if (!ranked_info.empty()) {
@@ -98,20 +103,30 @@ void MyApp::draw() {
           }
           tier = solo_info["tier"].get<std::string>();
           if (tier == "CHALLENGER" || tier == "GRANDMASTER" || tier == "MASTER") {
-            rank = "0";
+              rank = "0";
           } else {
             rank = solo_info["rank"].get<std::string>();
           }
           points = solo_info["leaguePoints"].get<int>();
+          wins = solo_info["wins"].get<int>();
+          losses = solo_info["losses"].get<int>();
+          games = wins + losses;
+          winrate = (double) wins / games;
         } else {
           tier = "UNRANKED";
           rank = "0";
           points = 0;
+          wins = 0;
+          losses = 0;
+          games = 0;
+          winrate = 0;
         }
 
-        response = getMatchList("RGAPI-2780f235-d7db-4796-8a91-2000b43b310f", "NA1", account_id, "420", "0", "100");
-        nlohmann::json matches = nlohmann::json::parse(response);
-        
+        response = getMasteryInfo(api_key, region, summoner_id);
+        nlohmann::json mastery_info = nlohmann::json::parse(response);
+        first_champ_id = mastery_info.at(0)["championId"].get<int>();
+        second_champ_id = mastery_info.at(1)["championId"].get<int>();
+        third_champ_id = mastery_info.at(2)["championId"].get<int>();
       }
     }
     enter = false;
@@ -120,12 +135,85 @@ void MyApp::draw() {
     //ImGui::Text("Username: %s", username.c_str());
     if (!res) {
       cinder::gl::color(cinder::Color::white());
-      cinder::gl::drawSolidCircle(getWindowCenter(), 100);
+      cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x, getWindowCenter().y - 150), 100);
     }
     const cinder::vec2 center = getWindowCenter();
     const cinder::ivec2 size = {500, 50};
 
-    printText(username, Color( 0, 0, 0), 40, size, center);
+    printText(username, Color( 0, 0, 0), 30, size, cinder::vec2(getWindowCenter().x, getWindowCenter().y - 150));
+
+
+    cinder::gl::color(cinder::Color::white());
+    cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y + 350), 100);
+
+    string first_champ_name = champion_ids[std::to_string(first_champ_id)];
+    string second_champ_name = champion_ids[std::to_string(second_champ_id)];
+    string third_champ_name = champion_ids[std::to_string(third_champ_id)];
+
+    printText(first_champ_name, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x - 350, getWindowCenter().y + 385));
+    printText(second_champ_name, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y + 385));
+    printText(third_champ_name, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x - 250, getWindowCenter().y + 385));
+
+    removeSpacesAndApostrophes(first_champ_name);
+    removeSpacesAndApostrophes(second_champ_name);
+    removeSpacesAndApostrophes(third_champ_name);
+
+    string first_champ_tag1;
+    string first_champ_tag2;
+    string second_champ_tag1;
+    string second_champ_tag2;
+    string third_champ_tag1;
+    string third_champ_tag2;
+
+    first_champ_tag1 = champions_data[first_champ_name]["tags"].at(0).get<string>();
+    tags.push_back(first_champ_tag1);
+    if (champions_data[first_champ_name]["tags"].size() > 1) {
+      first_champ_tag2 = champions_data[first_champ_name]["tags"].at(1).get<string>();
+      tags.push_back(first_champ_tag2);
+    }
+    second_champ_tag1 = champions_data[second_champ_name]["tags"].at(0).get<string>();
+    tags.push_back(second_champ_tag1);
+    if (champions_data[second_champ_name]["tags"].size() > 1) {
+      second_champ_tag2 = champions_data[second_champ_name]["tags"].at(1).get<string>();
+      tags.push_back(second_champ_tag2);
+    }
+    third_champ_tag1 = champions_data[third_champ_name]["tags"].at(0).get<string>();
+    tags.push_back(third_champ_tag1);
+    if (champions_data[third_champ_name]["tags"].size() > 1) {
+      third_champ_tag2 = champions_data[third_champ_name]["tags"].at(1).get<string>();
+      tags.push_back(third_champ_tag2);
+    }
+
+    std::map<string, int> tag_frequencies;
+    for (auto it = tags.begin(); it != tags.end(); ++it) {
+      
+    }
+
+
+    cinder::Surface first_champ_tile(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/champion/" + first_champ_name + ".png")));
+    cinder::Surface first_resized(50, 50, false);
+    cinder::ip::resize(first_champ_tile, &first_resized);
+    cinder::Rectf first_rect(getWindowCenter().x - 375, getWindowCenter().y + 325, getWindowCenter().x - 325, getWindowCenter().y + 375);
+    cinder::gl::color(Color(1,1,1));
+    cinder::gl::draw(cinder::gl::Texture2d::create(first_resized), first_rect);
+
+    cinder::Surface second_champ_tile(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/champion/" + second_champ_name + ".png")));
+    cinder::Surface second_resized(50, 50, false);
+    cinder::ip::resize(second_champ_tile, &second_resized);
+    cinder::Rectf second_rect(getWindowCenter().x - 325, getWindowCenter().y + 325, getWindowCenter().x - 275, getWindowCenter().y + 375);
+    cinder::gl::color(Color(1,1,1));
+    cinder::gl::draw(cinder::gl::Texture2d::create(second_resized), second_rect);
+
+    cinder::Surface third_champ_tile(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/champion/" + third_champ_name + ".png")));
+    cinder::Surface third_resized(50, 50, false);
+    cinder::ip::resize(third_champ_tile, &third_resized);
+    cinder::Rectf third_rect(getWindowCenter().x - 275, getWindowCenter().y + 325, getWindowCenter().x - 225, getWindowCenter().y + 375);
+    cinder::gl::color(Color(1,1,1));
+    cinder::gl::draw(cinder::gl::Texture2d::create(third_resized), third_rect);
+
+    printText("TOP CHAMPIONS", Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y + 300));
+
+
   }
   /*
   if (!account_id.empty()) {
@@ -138,39 +226,59 @@ void MyApp::draw() {
   if (!rank.empty() && !res) {
     //ImGui::Text("Rank: %s", rank.c_str());
     cinder::gl::color(cinder::Color::white());
-    cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y), 100);
+    cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y - 150), 100);
 
-    const cinder::vec2 center = cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y);
+    const cinder::vec2 center = getWindowCenter();
     const cinder::ivec2 size = {500, 50};
     if (tier == "UNRANKED") {
-      printText("Unranked", Color( 0, 0, 0), 40, size, center);
+      printText("Unranked", Color( 0, 0, 0), 30, size, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y - 150));
     } else {
-      cinder::Surface emblem(cinder::loadImage(loadAsset("ranked-emblems/Emblem_" + tier + ".png")));
-
-      cinder::Surface resized(100, 100, false);
-
-      cinder::ip::resize(emblem, &resized);
-
-      cinder::Rectf drawRect(getWindowCenter().x + 250, getWindowCenter().y - 60, getWindowCenter().x + 350, getWindowCenter().y + 40);
+      cinder::Surface current_emblem(cinder::loadImage(loadAsset("ranked-emblems/Emblem_" + tier + ".png")));
+      cinder::Surface current_resized(100, 100, false);
+      cinder::ip::resize(current_emblem, &current_resized);
+      cinder::Rectf current_rect(getWindowCenter().x + 250, getWindowCenter().y - 210, getWindowCenter().x + 350, getWindowCenter().y - 110);
       cinder::gl::color(Color(1,1,1));
-      cinder::gl::draw(cinder::gl::Texture2d::create(resized), drawRect);
-      string full_rank;
+      cinder::gl::draw(cinder::gl::Texture2d::create(current_resized), current_rect);
+      string current_full_rank;
       if (rank == "0") {
-        full_rank = tier + " " + std::to_string(points) + " LP";
+        current_full_rank = tier + " " + std::to_string(points) + " LP";
       } else {
-        full_rank = tier + " " + rank + " " + std::to_string(points) + " LP";
+        current_full_rank = tier + " " + rank + " " + std::to_string(points) + " LP";
       }
-      printText(full_rank, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 60));
+      printText("CURRENT RANK", Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y - 220));
+      printText(current_full_rank, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y - 90));
+
+      cinder::gl::color(cinder::Color::white());
+      cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 100), 100);
+      string predictive_full_rank = calculatePeak(rank, tier, games, winrate);
+      cinder::Surface predictive_emblem(cinder::loadImage(loadAsset("ranked-emblems/Emblem_" + predictive_tier + ".png")));
+      cinder::Surface predictive_resized(100, 100, false);
+      cinder::ip::resize(predictive_emblem, &predictive_resized);
+      cinder::Rectf predictive_rect(getWindowCenter().x + 250, getWindowCenter().y + 40, getWindowCenter().x + 350, getWindowCenter().y + 140);
+      cinder::gl::color(Color(1,1,1));
+      cinder::gl::draw(cinder::gl::Texture2d::create(predictive_resized), predictive_rect);
+      printText("PREDICTED PEAK", Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 30));
+      printText(predictive_full_rank, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 160));
+
+      cinder::gl::color(cinder::Color::white());
+      cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x, getWindowCenter().y + 100), 100);
+      string winrate_str = std::to_string(winrate).substr(2, 3);
+      winrate_str.insert(2, ".");
+      printText(winrate_str + "% Win Ratio", Color(0, 0, 0), 30, {500, 50}, cinder::vec2(getWindowCenter().x, getWindowCenter().y + 100));
+
+      cinder::gl::color(cinder::Color::white());
+      cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y + 100), 100);
+      printText(std::to_string(games) + " Games", Color(0, 0, 0), 30, {500, 50}, cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y + 100));
     }
   }
   if (icon_id != -1 && !res) {
     cinder::gl::color(cinder::Color::white());
-    cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y), 100);
+    cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y - 150), 100);
     cinder::Surface icon(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/profileicon/" + std::to_string(icon_id) + ".png")));
     cinder::Surface resized(100, 100, false);
     cinder::ip::resize(icon, &resized);
 
-    cinder::Rectf drawRect(getWindowCenter().x - 350, getWindowCenter().y - 50, getWindowCenter().x - 250, getWindowCenter().y + 50);
+    cinder::Rectf drawRect(getWindowCenter().x - 350, getWindowCenter().y - 200, getWindowCenter().x - 250, getWindowCenter().y - 100);
     cinder::gl::color(Color(1,1,1));
     cinder::gl::draw(cinder::gl::Texture2d::create(resized), drawRect);
   }
@@ -228,11 +336,7 @@ std::string MyApp::call(const std::string& url) {
   }
 }
 string MyApp::getSummonerInfo(string api_key, string region, string name) {
-  string x = " ", y = "%20";
-  size_t pos;
-  while ((pos = name.find(x)) != std::string::npos) {
-    name.replace(pos, 1, y);
-  }
+  removeSpacesAndApostrophes(name);
   return call("https://" + region + ".api.riotgames.com/lol/summoner/v4/summoners/by-name/" + name + "?api_key=" + api_key);
 }
 string MyApp::getRankedInfo(string api_key, string region, string summoner_id) {
@@ -247,5 +351,178 @@ string MyApp::getMatchInfo(string api_key, string region, string match_id) {
   return call("https://" + region + ".api.riotgames.com/lol/match/v4/matches/" + match_id + "?api_key=" + api_key);
 }
 
+string MyApp::getMasteryInfo(string api_key, string region, string summoner_id) {
+  return call("https://" + region + ".api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/" + summoner_id + "?api_key=" + api_key);
+}
+
+string MyApp::calculatePeak(string rank, string tier, int games, int winrate) {
+  if (tier == "CHALLENGER") {
+    predictive_tier = "CHALLENGER";
+    return "CHALLENGER";
+  }
+  int rank_int;
+  if (rank == "I") {
+    rank_int = 1;
+  } else if (rank == "II") {
+    rank_int = 2;
+  } else if (rank == "III") {
+    rank_int = 3;
+  } else if (rank == "IV") {
+    rank_int = 4;
+  }
+  Tier tier_enum = stringToTier(tier);
+  if (tier == "MASTER" || tier == "GRANDMASTER") {
+    if (winrate >= 0.54) {
+      tier_enum = Tier::CHALLENGER;
+    } else if (winrate >= 0.52) {
+      tier_enum = static_cast<Tier>(tier_enum + 1);
+    } else {
+      if (games < 100) {
+        tier_enum = Tier::CHALLENGER;
+      } else if (games < 300) {
+        tier_enum = static_cast<Tier>(tier_enum + 1);
+      }
+    }
+  } else {
+    if (winrate >= 0.8) {
+      if (games < 20) {
+        rank_int -= 4;
+      } else if (games < 50) {
+        rank_int -= 5;
+      } else if (games < 100) {
+        rank_int -= 9;
+      } else {
+        rank_int -= 12;
+      }
+    } else if (winrate >= 0.7) {
+      if (games < 20) {
+        rank_int -= 3;
+      } else if (games < 50) {
+        rank_int -= 4;
+      } else if (games < 100) {
+        rank_int -= 7;
+      } else {
+        rank_int -= 10;
+      }
+    } else if (winrate >= 0.6) {
+      if (games < 20) {
+        rank_int -= 2;
+      } else if (games < 100) {
+        rank_int -= 3;
+      } else {
+        rank_int -= 5;
+      }
+    } else if (winrate >= 0.56) {
+      if (games < 50) {
+        rank_int -= 2;
+      } else if (games < 100) {
+        rank_int -= 3;
+      } else {
+        rank_int -= 2;
+      }
+    } else if (winrate >= 0.52) {
+      if (games < 100) {
+        rank_int -= 2;
+      } else {
+        rank_int -= 1;
+      }
+    } else {
+      if (games < 20) {
+        rank_int -= 2;
+      } else if (games < 100) {
+        rank_int -= 1;
+      }
+    }
+  }
+  if (tier_enum >= 7) {
+    predictive_tier = tierToString(tier_enum);
+    return predictive_tier;
+  } else {
+    int tiers_up = 0;
+    while (rank_int < 1) {
+      rank_int += 4;
+      tiers_up++;
+    }
+    tier_enum = static_cast<Tier>(tier_enum + tiers_up);
+    string tier_string = tierToString(tier_enum);
+    string rank_string;
+    if (rank_int == 1) {
+      rank_string = "I";
+    } else if (rank_int == 2) {
+      rank_string = "II";
+    } else if (rank_int == 3) {
+      rank_string = "III";
+    } else if (rank_int == 4) {
+      rank_string = "IV";
+    }
+    predictive_tier = tier_string;
+    return tier_string + " " + rank_string;
+  }
+}
+
+MyApp::Tier MyApp::stringToTier(string tier) {
+  Tier tier_enum;
+  if (tier == "CHALLENGER") {
+    tier_enum = Tier::CHALLENGER;
+  } else if (tier == "GRANDMASTER") {
+    tier_enum = Tier::GRANDMASTER;
+  } else if (tier == "MASTER") {
+    tier_enum = Tier::MASTER;
+  } else if (tier == "DIAMOND") {
+    tier_enum = Tier::DIAMOND;
+  } else if (tier == "PLATINUM") {
+    tier_enum = Tier::PLATINUM;
+  } else if (tier == "GOLD") {
+    tier_enum = Tier::GOLD;
+  } else if (tier == "SILVER") {
+    tier_enum = Tier::SILVER;
+  } else if (tier == "BRONZE") {
+    tier_enum = Tier::BRONZE;
+  } else if (tier == "IRON") {
+    tier_enum = Tier::IRON;
+  } else if (tier == "UNRANKED") {
+    tier_enum = Tier::UNRANKED;
+  }
+  return tier_enum;
+}
+
+string MyApp::tierToString(Tier tier) {
+  string tier_string;
+  if (tier == Tier::CHALLENGER) {
+    tier_string = "CHALLENGER";
+  } else if (tier == Tier::GRANDMASTER) {
+    tier_string = "GRANDMASTER";
+  } else if (tier == Tier::MASTER) {
+    tier_string = "MASTER";
+  } else if (tier == Tier::DIAMOND) {
+    tier_string = "DIAMOND";
+  } else if (tier == Tier::PLATINUM) {
+    tier_string = "PLATINUM";
+  } else if (tier == Tier::GOLD) {
+    tier_string = "GOLD";
+  } else if (tier == Tier::SILVER) {
+    tier_string = "SILVER";
+  } else if (tier == Tier::BRONZE) {
+    tier_string = "BRONZE";
+  } else if (tier == Tier::IRON) {
+    tier_string = "IRON";
+  } else if (tier == Tier::UNRANKED) {
+    tier_string = "UNRANKED";
+  }
+  return tier_string;
+}
+
+void MyApp::removeSpacesAndApostrophes(string& input) {
+  string x = " ", y = "";
+  size_t pos;
+  while ((pos = input.find(x)) != std::string::npos) {
+    input.replace(pos, 1, y);
+  }
+  string i = "'", j = "";
+  size_t pos2;
+  while ((pos2 = input.find(i)) != std::string::npos) {
+    input.replace(pos2, 1, j);
+  }
+}
 }  // namespace myapp
 
