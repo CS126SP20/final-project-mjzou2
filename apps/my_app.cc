@@ -134,12 +134,10 @@ void MyApp::draw() {
         third_champ_id = mastery_info.at(2)["championId"].get<int>();
 
         response = getCurrentGameInfo(api_key, region, summoner_id);
-
-        nlohmann::json current_game_info = nlohmann::json::parse(response);
-
         in_game = status_code == 200;
 
         if (in_game) {
+          nlohmann::json current_game_info = nlohmann::json::parse(response);
           current_game_time = current_game_info["gameLength"].get<int>();
           nlohmann::json participants = current_game_info["participants"];
           for (auto it = participants.begin(); it != participants.end(); ++it) {
@@ -409,7 +407,19 @@ void MyApp::draw() {
       cinder::Rectf current_rect(getWindowCenter().x + 275, getWindowCenter().y + 325, getWindowCenter().x + 325, getWindowCenter().y + 375);
       cinder::gl::color(Color(1,1,1));
       cinder::gl::draw(cinder::gl::Texture2d::create(current_resized), current_rect);
+      int minutes = current_game_time / 60;
+      int seconds = current_game_time % 60;
+      string minutes_string = std::to_string(minutes);
+      string seconds_string;
+      if (seconds < 10) {
+        seconds_string = "0" + std::to_string(seconds);
+      } else {
+        seconds_string = std::to_string(seconds);
+      }
+      string game_time = minutes_string + ":" + seconds_string;
+
       printText("CURRENT GAME", Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 300));
+      printText(game_time, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 315));
     } else {
       printText("Not In-Game", Color(0, 0, 0), 30, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 350));
     }
