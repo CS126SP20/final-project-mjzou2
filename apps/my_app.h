@@ -46,6 +46,7 @@ class MyApp : public cinder::app::App {
   string getMatchList(string api_key, string region, string account_id, string queue, string begin_index, string end_index);
   string getMatchInfo(string api_key, string region, string match_id);
   string getMasteryInfo(string api_key, string region, string summoner_id);
+  string getCurrentGameInfo(string api_key, string region, string summoner_id);
   string calculatePeak(string rank, string tier, int games, int winrate);
   Tier stringToTier(string tier);
   string tierToString(Tier tier);
@@ -69,6 +70,13 @@ class MyApp : public cinder::app::App {
   nlohmann::json champion_ids;
   nlohmann::json champions_data;
   vector<string> tags;
+  string first_rec_champ;
+  string second_rec_champ;
+  string third_rec_champ;
+  bool in_game;
+  int current_champ_id;
+  int current_game_time;
+  int status_code;
 };
 
 }  // namespace myapp

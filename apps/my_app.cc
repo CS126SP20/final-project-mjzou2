@@ -54,7 +54,12 @@ void MyApp::setup() {
   champions_data = champions_full["data"];
 }
 
-void MyApp::update() {}
+void MyApp::update() {
+  first_rec_champ.clear();
+  second_rec_champ.clear();
+  third_rec_champ.clear();
+  tags.clear();
+}
 
 void MyApp::draw() {
   cinder::gl::clear( Color( 0.1, 0.1, 0.1 ) );
@@ -127,6 +132,23 @@ void MyApp::draw() {
         first_champ_id = mastery_info.at(0)["championId"].get<int>();
         second_champ_id = mastery_info.at(1)["championId"].get<int>();
         third_champ_id = mastery_info.at(2)["championId"].get<int>();
+
+        response = getCurrentGameInfo(api_key, region, summoner_id);
+
+        nlohmann::json current_game_info = nlohmann::json::parse(response);
+
+        in_game = status_code == 200;
+
+        if (in_game) {
+          current_game_time = current_game_info["gameLength"].get<int>();
+          nlohmann::json participants = current_game_info["participants"];
+          for (auto it = participants.begin(); it != participants.end(); ++it) {
+            if (it.value()["summonerName"].get<string>() == username) {
+              current_champ_id = (int) it.value()["championId"].get<long>();
+            }
+          }
+        }
+
       }
     }
     enter = false;
@@ -145,6 +167,10 @@ void MyApp::draw() {
 
     cinder::gl::color(cinder::Color::white());
     cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y + 350), 100);
+    cinder::gl::color(cinder::Color::white());
+    cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x, getWindowCenter().y + 350), 100);
+    cinder::gl::color(cinder::Color::white());
+    cinder::gl::drawSolidCircle(cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 350), 100);
 
     string first_champ_name = champion_ids[std::to_string(first_champ_id)];
     string second_champ_name = champion_ids[std::to_string(second_champ_id)];
@@ -177,8 +203,10 @@ void MyApp::draw() {
       second_champ_tag2 = champions_data[second_champ_name]["tags"].at(1).get<string>();
       tags.push_back(second_champ_tag2);
     }
+
     third_champ_tag1 = champions_data[third_champ_name]["tags"].at(0).get<string>();
     tags.push_back(third_champ_tag1);
+
     if (champions_data[third_champ_name]["tags"].size() > 1) {
       third_champ_tag2 = champions_data[third_champ_name]["tags"].at(1).get<string>();
       tags.push_back(third_champ_tag2);
@@ -186,9 +214,136 @@ void MyApp::draw() {
 
     std::map<string, int> tag_frequencies;
     for (auto it = tags.begin(); it != tags.end(); ++it) {
-      
+      auto tag_it = tag_frequencies.find(*it);
+      if (tag_it != tag_frequencies.end()) {
+        tag_it->second++;
+      } else {
+        tag_frequencies.insert(std::make_pair(*it, 1));
+      }
+    }
+    string most_freq;
+    int freq = 0;
+    for (auto it = tag_frequencies.begin(); it != tag_frequencies.end(); ++it) {
+      if (it->second > freq) {
+        freq = it->second;
+        most_freq = it->first;
+      }
+    }
+    tag_frequencies.erase(most_freq);
+    string second_most_freq;
+    freq = 0;
+    for (auto it = tag_frequencies.begin(); it != tag_frequencies.end(); ++it) {
+      if (it->second > freq) {
+        freq = it->second;
+        second_most_freq = it->first;
+      }
     }
 
+    // exact matches
+    bool done = false;
+    for (auto& it : champions_data.items())
+    {
+      string first_tag = it.value()["tags"].at(0).get<string>();
+      string second_tag;
+      if (it.value()["tags"].size() > 1) {
+        second_tag = it.value()["tags"].at(1).get<string>();
+      }
+      if (most_freq == first_tag) {
+        if (second_most_freq == second_tag) {
+          string name = it.value()["name"].get<string>();
+          if (name != first_champ_name && name != second_champ_name && name != third_champ_name) {
+            if (first_rec_champ.empty()) {
+              first_rec_champ = name;
+            } else if (second_rec_champ.empty()) {
+              second_rec_champ = name;
+            } else if (third_rec_champ.empty()) {
+              third_rec_champ = name;
+              done = true;
+              break;
+            }
+          }
+        }
+      } else if (most_freq == second_tag) {
+        if (second_most_freq == first_tag) {
+          string name = it.value()["name"].get<string>();
+          if (name != first_champ_name && name != second_champ_name && name != third_champ_name) {
+            if (first_rec_champ.empty()) {
+              first_rec_champ = name;
+            } else if (second_rec_champ.empty()) {
+              second_rec_champ = name;
+            } else if (third_rec_champ.empty()) {
+              third_rec_champ = name;
+              done = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // half matches
+    if (!done) {
+      for (auto& it : champions_data.items()) {
+        string first_tag = it.value()["tags"].at(0).get<string>();
+        string second_tag;
+        if (it.value()["tags"].size() > 1) {
+          second_tag = it.value()["tags"].at(1).get<string>();
+        }
+        if (most_freq == first_tag) {
+          string name = it.value()["name"].get<string>();
+          if (name != first_champ_name && name != second_champ_name && name != third_champ_name) {
+            if (first_rec_champ.empty()) {
+              first_rec_champ = name;
+            } else if (second_rec_champ.empty()) {
+              second_rec_champ = name;
+            } else if (third_rec_champ.empty()) {
+              third_rec_champ = name;
+              done = true;
+              break;
+            }
+          }
+        } else if (most_freq == second_tag) {
+          string name = it.value()["name"].get<string>();
+          if (name != first_champ_name && name != second_champ_name && name != third_champ_name) {
+            if (first_rec_champ.empty()) {
+              first_rec_champ = name;
+            } else if (second_rec_champ.empty()) {
+              second_rec_champ = name;
+            } else if (third_rec_champ.empty()) {
+              third_rec_champ = name;
+              done = true;
+              break;
+            }
+          }
+        } else if (second_most_freq == first_tag) {
+          string name = it.value()["name"].get<string>();
+          if (name != first_champ_name && name != second_champ_name && name != third_champ_name) {
+            if (first_rec_champ.empty()) {
+              first_rec_champ = name;
+            } else if (second_rec_champ.empty()) {
+              second_rec_champ = name;
+            } else if (third_rec_champ.empty()) {
+              third_rec_champ = name;
+              done = true;
+              break;
+            }
+          }
+        } else if (second_most_freq == second_tag) {
+          string name = it.value()["name"].get<string>();
+          if (name != first_champ_name && name != second_champ_name && name != third_champ_name) {
+            if (first_rec_champ.empty()) {
+              first_rec_champ = name;
+            } else if (second_rec_champ.empty()) {
+              second_rec_champ = name;
+            } else if (third_rec_champ.empty()) {
+              third_rec_champ = name;
+              done = true;
+              break;
+            }
+          }
+        }
+      }
+    }
 
     cinder::Surface first_champ_tile(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/champion/" + first_champ_name + ".png")));
     cinder::Surface first_resized(50, 50, false);
@@ -213,6 +368,51 @@ void MyApp::draw() {
 
     printText("TOP CHAMPIONS", Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x - 300, getWindowCenter().y + 300));
 
+    printText(first_rec_champ, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x - 50, getWindowCenter().y + 385));
+    printText(second_rec_champ, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x, getWindowCenter().y + 385));
+    printText(third_rec_champ, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 50, getWindowCenter().y + 385));
+
+    removeSpacesAndApostrophes(first_rec_champ);
+    removeSpacesAndApostrophes(second_rec_champ);
+    removeSpacesAndApostrophes(third_rec_champ);
+
+    cinder::Surface first_rec_tile(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/champion/" + first_rec_champ + ".png")));
+    cinder::Surface first_rec_resized(50, 50, false);
+    cinder::ip::resize(first_rec_tile, &first_rec_resized);
+    cinder::Rectf first_rec_rect(getWindowCenter().x - 75, getWindowCenter().y + 325, getWindowCenter().x - 25, getWindowCenter().y + 375);
+    cinder::gl::color(Color(1,1,1));
+    cinder::gl::draw(cinder::gl::Texture2d::create(first_rec_resized), first_rec_rect);
+
+    cinder::Surface second_rec_tile(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/champion/" + second_rec_champ + ".png")));
+    cinder::Surface second_rec_resized(50, 50, false);
+    cinder::ip::resize(second_rec_tile, &second_rec_resized);
+    cinder::Rectf second_rec_rect(getWindowCenter().x - 25, getWindowCenter().y + 325, getWindowCenter().x + 25, getWindowCenter().y + 375);
+    cinder::gl::color(Color(1,1,1));
+    cinder::gl::draw(cinder::gl::Texture2d::create(second_rec_resized), second_rec_rect);
+
+    cinder::Surface third_rec_tile(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/champion/" + third_rec_champ + ".png")));
+    cinder::Surface third_rec_resized(50, 50, false);
+    cinder::ip::resize(third_rec_tile, &third_rec_resized);
+    cinder::Rectf third_rec_rect(getWindowCenter().x + 25, getWindowCenter().y + 325, getWindowCenter().x + 75, getWindowCenter().y + 375);
+    cinder::gl::color(Color(1,1,1));
+    cinder::gl::draw(cinder::gl::Texture2d::create(third_rec_resized), third_rec_rect);
+
+    printText("RECOMMENDED CHAMPIONS", Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x, getWindowCenter().y + 300));
+
+    if (in_game) {
+      string current_champ_name = champion_ids[std::to_string(current_champ_id)];
+      printText(current_champ_name, Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 385));
+      removeSpacesAndApostrophes(current_champ_name);
+      cinder::Surface current_champ_tile(cinder::loadImage(loadAsset("dragontail-10.9.1/10.9.1/img/champion/" + current_champ_name + ".png")));
+      cinder::Surface current_resized(50, 50, false);
+      cinder::ip::resize(current_champ_tile, &current_resized);
+      cinder::Rectf current_rect(getWindowCenter().x + 275, getWindowCenter().y + 325, getWindowCenter().x + 325, getWindowCenter().y + 375);
+      cinder::gl::color(Color(1,1,1));
+      cinder::gl::draw(cinder::gl::Texture2d::create(current_resized), current_rect);
+      printText("CURRENT GAME", Color(0, 0, 0), 15, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 300));
+    } else {
+      printText("Not In-Game", Color(0, 0, 0), 30, {500, 50}, cinder::vec2(getWindowCenter().x + 300, getWindowCenter().y + 350));
+    }
 
   }
   /*
@@ -308,7 +508,7 @@ void MyApp::printText(const string& text, const C& color, int font_size,
 
 std::string MyApp::call(const std::string& url) {
   auto response = cpr::Get(cpr::Url{url});
-  int status_code = response.status_code;
+  status_code = response.status_code;
   if (status_code == 200) {
     return response.text;
   } else if (status_code == 400) {
@@ -354,6 +554,10 @@ string MyApp::getMatchInfo(string api_key, string region, string match_id) {
 string MyApp::getMasteryInfo(string api_key, string region, string summoner_id) {
   return call("https://" + region + ".api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/" + summoner_id + "?api_key=" + api_key);
 }
+
+string MyApp::getCurrentGameInfo(string api_key, string region, string summoner_id) {
+  return call("https://" + region + ".api.riotgames.com/lol/spectator/v4/active-games/by-summoner/" + summoner_id + "?api_key=" + api_key);
+};
 
 string MyApp::calculatePeak(string rank, string tier, int games, int winrate) {
   if (tier == "CHALLENGER") {
@@ -517,6 +721,10 @@ void MyApp::removeSpacesAndApostrophes(string& input) {
   size_t pos;
   while ((pos = input.find(x)) != std::string::npos) {
     input.replace(pos, 1, y);
+  }
+  for (int i = 1; i < input.size(); i++) {
+    if (input[i - 1] == '\'')
+      input[i] = std::tolower(input[i]);
   }
   string i = "'", j = "";
   size_t pos2;
